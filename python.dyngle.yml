@@ -1,0 +1,53 @@
+# Shared Dyngle operations for SteamWiz Python projects (think of it like Make)
+#
+# Override the constants below in the project's own .dyngle.yml.
+
+dyngle:
+
+  constants:
+    coverage-target: '100'
+    python-version: '3'
+
+  expressions:
+    source-dir: PurePath(getcwd()).name
+
+  operations:
+
+    # Create an entirely new venv
+
+    init:
+      - rm -rf .venv
+      - python{{python-version}} -m venv .venv
+      - .venv/bin/pip install --upgrade pip poetry
+
+
+    # Install dependencies into the venv. Note we don't install the project
+    # itself as we're in development and can call our code directly.
+
+    dependencies:
+      - .venv/bin/poetry install --no-root
+
+
+    # Run unit tests and report coverage. The coverage target should match
+    # coverage-min in .github/workflows/ci.yml.
+
+    test:
+      - .venv/bin/python -m coverage run --source={{source-dir}} -m pytest test/ -s
+      - .venv/bin/python -m coverage report -m --fail-under {{coverage-target}}
+
+
+    # Check code style - use AutoPEP8 to clean up some first
+
+    style:
+      - .venv/bin/autopep8 -ir {{source-dir}}
+      - .venv/bin/pycodestyle {{source-dir}}
+      - .venv/bin/autopep8 -ir test
+      - .venv/bin/pycodestyle test
+
+
+    # Perform a local test build. Published builds come from GitHub Actions,
+    # but a local build is useful for distribution-level tests.
+
+    build:
+      - rm -rf dist
+      - .venv/bin/poetry build
